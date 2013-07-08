@@ -1,0 +1,8 @@
+SET CLASSPATH=
+
+SET JAVA_HOME=C:\Program Files\Java\jdk1.7.0_21
+
+SET PATH=%JAVA_HOME%\bin
+
+SET GRADLE_HOME=
+
