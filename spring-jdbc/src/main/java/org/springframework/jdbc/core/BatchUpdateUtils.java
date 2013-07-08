@@ -48,21 +48,24 @@ public abstract class BatchUpdateUtils {
 		int colIndex = 0;
 		for (Object value : values) {
 			colIndex++;
-			if (value instanceof SqlParameterValue) {
-				SqlParameterValue paramValue = (SqlParameterValue) value;
-				StatementCreatorUtils.setParameterValue(ps, colIndex, paramValue, paramValue.getValue());
-			}
-			else {
-				int colType;
-				if (columnTypes == null || columnTypes.length < colIndex) {
-					colType = SqlTypeValue.TYPE_UNKNOWN;
-				}
-				else {
-					colType = columnTypes[colIndex - 1];
-				}
-				StatementCreatorUtils.setParameterValue(ps, colIndex, colType, value);
-			}
+			
+			int colType = (columnTypes == null || columnTypes.length < colIndex ? 
+					SqlTypeValue.TYPE_UNKNOWN :columnTypes[colIndex - 1]);
+			StatementCreatorUtils.setParameterValue(ps, colIndex, colType, value);
 		}
 	}
 
+	//Added by George
+	protected static void setStatementParameters(List<Object> values, PreparedStatement ps, List<SqlParameter> params) throws SQLException {
+		int colIndex = 0;
+		for (Object value : values) {
+			colIndex++;
+			
+			if(params == null || params.size() < colIndex){
+				StatementCreatorUtils.setParameterValue(ps, colIndex, SqlTypeValue.TYPE_UNKNOWN, value);
+			}else{
+				StatementCreatorUtils.setParameterValue(ps, colIndex, params.get(colIndex - 1), value);
+			}
+		}
+	}
 }

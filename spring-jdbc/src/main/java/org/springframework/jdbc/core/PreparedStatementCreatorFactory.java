@@ -1,19 +1,3 @@
-/*
- * Copyright 2002-2013 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.springframework.jdbc.core;
 
 import java.sql.Connection;
@@ -45,10 +29,12 @@ import org.springframework.util.Assert;
  */
 public class PreparedStatementCreatorFactory {
 
-	/** The SQL, which won't change when the parameters change */
+	/** The SQL, which won't change when the parameters change 
+	 * 如果是空，则说明工厂只是为了创建setter*/
 	private final String sql;
 
-	/** List of SqlParameter objects. May not be {@code null}. */
+	/** List of SqlParameter objects. May not be <code>null</code>. 
+	 * 必须和调用数值一一对应*/
 	private final List<SqlParameter> declaredParameters;
 
 	private int resultSetType = ResultSet.TYPE_FORWARD_ONLY;
@@ -71,6 +57,17 @@ public class PreparedStatementCreatorFactory {
 		this.declaredParameters = new LinkedList<SqlParameter>();
 	}
 
+	/**
+	 * Create a new factory with the given DBC types.
+	 * 如果这个工厂只是为了创建Setter，则sql没有用处
+	 * @param types int array of JDBC types
+	 * Added By George
+	 */
+	public PreparedStatementCreatorFactory(int[] types) {
+		this.sql = null;
+		this.declaredParameters = SqlParameter.sqlTypesToAnonymousParameterList(types);
+	}
+	
 	/**
 	 * Create a new factory with the given SQL and JDBC types.
 	 * @param sql SQL to execute
@@ -144,15 +141,15 @@ public class PreparedStatementCreatorFactory {
 
 	/**
 	 * Return a new PreparedStatementSetter for the given parameters.
-	 * @param params list of parameters (may be {@code null})
+	 * @param params list of parameters (may be <code>null</code>)
 	 */
-	public PreparedStatementSetter newPreparedStatementSetter(List<?> params) {
+	public PreparedStatementSetter newPreparedStatementSetter(List<Object> params) {
 		return new PreparedStatementCreatorImpl(params != null ? params : Collections.emptyList());
 	}
 
 	/**
 	 * Return a new PreparedStatementSetter for the given parameters.
-	 * @param params the parameter array (may be {@code null})
+	 * @param params the parameter array (may be <code>null</code>)
 	 */
 	public PreparedStatementSetter newPreparedStatementSetter(Object[] params) {
 		return new PreparedStatementCreatorImpl(params != null ? Arrays.asList(params) : Collections.emptyList());
@@ -160,15 +157,15 @@ public class PreparedStatementCreatorFactory {
 
 	/**
 	 * Return a new PreparedStatementCreator for the given parameters.
-	 * @param params list of parameters (may be {@code null})
+	 * @param params list of parameters (may be <code>null</code>)
 	 */
-	public PreparedStatementCreator newPreparedStatementCreator(List<?> params) {
+	public PreparedStatementCreator newPreparedStatementCreator(List<Object> params) {
 		return new PreparedStatementCreatorImpl(params != null ? params : Collections.emptyList());
 	}
 
 	/**
 	 * Return a new PreparedStatementCreator for the given parameters.
-	 * @param params the parameter array (may be {@code null})
+	 * @param params the parameter array (may be <code>null</code>)
 	 */
 	public PreparedStatementCreator newPreparedStatementCreator(Object[] params) {
 		return new PreparedStatementCreatorImpl(params != null ? Arrays.asList(params) : Collections.emptyList());
@@ -178,77 +175,92 @@ public class PreparedStatementCreatorFactory {
 	 * Return a new PreparedStatementCreator for the given parameters.
 	 * @param sqlToUse the actual SQL statement to use (if different from
 	 * the factory's, for example because of named parameter expanding)
-	 * @param params the parameter array (may be {@code null})
+	 * @param params the parameter array (may be <code>null</code>)
 	 */
-	public PreparedStatementCreator newPreparedStatementCreator(String sqlToUse, Object[] params) {
+	public PreparedStatementCreator newPreparedStatementCreator(String sqlToUse, List<SqlParameter> parametersToUse, Object[] params) {
 		return new PreparedStatementCreatorImpl(
-				sqlToUse, params != null ? Arrays.asList(params) : Collections.emptyList());
+				sqlToUse, parametersToUse, params != null ? Arrays.asList(params) : Collections.emptyList());
 	}
 
-
+	public PreparedStatementCreator newPreparedStatementCreator(String sqlToUse, List<SqlParameter> parametersToUse, List<Object> params) {
+		return new PreparedStatementCreatorImpl(sqlToUse, parametersToUse, params);
+	}
+	
 	/**
 	 * PreparedStatementCreator implementation returned by this class.
 	 */
 	private class PreparedStatementCreatorImpl
 			implements PreparedStatementCreator, PreparedStatementSetter, SqlProvider, ParameterDisposer {
-
 		private final String actualSql;
+		private final List<?> values;
+		private final List<SqlParameter> actualParameters;
 
-		private final List parameters;
-
-		public PreparedStatementCreatorImpl(List<?> parameters) {
-			this(sql, parameters);
+		public PreparedStatementCreatorImpl(List<Object> parameters) {
+			//UserCase[A].6，继续跟踪
+			this(sql, declaredParameters, parameters);
 		}
-
-		public PreparedStatementCreatorImpl(String actualSql, List parameters) {
+		
+		/** 
+		 * PreparedStatementCreator的三要素：Sql、参数类型、参数数值。
+		 **/
+		public PreparedStatementCreatorImpl(String actualSql, List<SqlParameter> parametersToUse, List<Object> values) {
 			this.actualSql = actualSql;
-			Assert.notNull(parameters, "Parameters List must not be null");
-			this.parameters = parameters;
-			if (this.parameters.size() != declaredParameters.size()) {
-				// account for named parameters being used multiple times
+			this.actualParameters = parametersToUse;
+			this.values = values;
+			
+			Assert.notNull(values, "Parameters List must not be null");
+		
+			if(parametersToUse.size()<values.size()){
+				throw new InvalidDataAccessApiUsageException(
+						"SQL [" + actualSql + "]: given " + values.size() +
+						" parameters but expected " + parametersToUse.size());
+			}
+			
+			if (this.actualParameters.size() != declaredParameters.size()) {
 				Set<String> names = new HashSet<String>();
-				for (int i = 0; i < parameters.size(); i++) {
-					Object param = parameters.get(i);
-					if (param instanceof SqlParameterValue) {
-						names.add(((SqlParameterValue) param).getName());
-					}
-					else {
-						names.add("Parameter #" + i);
-					}
+				for (int i = 0; i < actualParameters.size(); i++) {
+					String name = actualParameters.get(i).getName();
+					names.add(name!=null ? name : "Parameter #" + i);
 				}
 				if (names.size() != declaredParameters.size()) {
 					throw new InvalidDataAccessApiUsageException(
-							"SQL [" + sql + "]: given " + names.size() +
+							"SQL [" + actualSql + "]: given " + names.size() +
 							" parameters but expected " + declaredParameters.size());
 				}
 			}
+			
 		}
 
 		public PreparedStatement createPreparedStatement(Connection con) throws SQLException {
-			PreparedStatement ps;
+			PreparedStatement ps = null;
 			if (generatedKeysColumnNames != null || returnGeneratedKeys) {
 				try {
+					/*
+					 * 要获得自动生成的KEY，a)手工设置index b)手工设置colname c)RETURN_GENERATED_KEYS
+					 */
 					if (generatedKeysColumnNames != null) {
-						ps = con.prepareStatement(this.actualSql, generatedKeysColumnNames);
+						ps = con.prepareStatement(actualSql, generatedKeysColumnNames);
 					}
 					else {
-						ps = con.prepareStatement(this.actualSql, PreparedStatement.RETURN_GENERATED_KEYS);
+						ps = con.prepareStatement(actualSql, PreparedStatement.RETURN_GENERATED_KEYS);
 					}
 				}
-				catch (AbstractMethodError err) {
+				catch (AbstractMethodError ex) {
 					throw new InvalidDataAccessResourceUsageException(
-							"Your JDBC driver is not compliant with JDBC 3.0 - " +
-							"it does not support retrieval of auto-generated keys", err);
+							"The JDBC driver is not compliant to JDBC 3.0 and thus " +
+							"does not support retrieval of auto-generated keys", ex);
 				}
 			}
 			else if (resultSetType == ResultSet.TYPE_FORWARD_ONLY && !updatableResults) {
-				ps = con.prepareStatement(this.actualSql);
+				ps = con.prepareStatement(actualSql);
 			}
 			else {
-				ps = con.prepareStatement(this.actualSql, resultSetType,
+				ps = con.prepareStatement(actualSql, resultSetType,
 					updatableResults ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
 			}
+			
 			setValues(ps);
+			
 			return ps;
 		}
 
@@ -261,27 +273,21 @@ public class PreparedStatementCreatorFactory {
 
 			// Set arguments: Does nothing if there are no parameters.
 			int sqlColIndx = 1;
-			for (int i = 0; i < this.parameters.size(); i++) {
-				Object in = this.parameters.get(i);
-				SqlParameter declaredParameter;
-				// SqlParameterValue overrides declared parameter metadata, in particular for
-				// independence from the declared parameter position in case of named parameters.
+			//全部的参数
+			for (int i = 0; i < this.values.size(); i++) {
+				Object in = this.values.get(i);
+				SqlParameter declaredParameter = actualParameters.get(i);
+				
 				if (in instanceof SqlParameterValue) {
-					SqlParameterValue paramValue = (SqlParameterValue) in;
-					in = paramValue.getValue();
-					declaredParameter = paramValue;
+					declaredParameter = (SqlParameter)in;
+					in = ((SqlParameterValue)in).getValue();
 				}
-				else {
-					if (declaredParameters.size() <= i) {
-						throw new InvalidDataAccessApiUsageException(
-								"SQL [" + sql + "]: unable to access parameter number " + (i + 1) +
-								" given only " + declaredParameters.size() + " parameters");
-
-					}
-					declaredParameter = declaredParameters.get(i);
-				}
+					
+				//第一步，去找每个参数对应的declaredParameter
 				if (in instanceof Collection && declaredParameter.getSqlType() != Types.ARRAY) {
-					Collection entries = (Collection) in;
+					//这里处理类似select id, name, state from table where (name, age) in (('John', 35), ('Ann', 50))
+					//的事情，参考NamedParameterUtils.substituteNamedParameters
+					Collection<?> entries = (Collection<?>) in;
 					for (Object entry : entries) {
 						if (entry instanceof Object[]) {
 							Object[] valueArray = ((Object[])entry);
@@ -300,19 +306,20 @@ public class PreparedStatementCreatorFactory {
 			}
 		}
 
+
 		public String getSql() {
-			return sql;
+			return actualSql;
 		}
 
 		public void cleanupParameters() {
-			StatementCreatorUtils.cleanupParameters(this.parameters);
+			StatementCreatorUtils.cleanupParameters(this.values);
 		}
 
 		@Override
 		public String toString() {
 			StringBuilder sb = new StringBuilder();
 			sb.append("PreparedStatementCreatorFactory.PreparedStatementCreatorImpl: sql=[");
-			sb.append(sql).append("]; parameters=").append(this.parameters);
+			sb.append(sql).append("]; parameters=").append(this.values);
 			return sb.toString();
 		}
 	}

@@ -16,9 +16,12 @@
 
 package org.springframework.jdbc.object;
 
+import java.util.List;
+
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.PreparedStatementCreatorFactory;
 import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.namedparam.NamedParameterUtils;
 import org.springframework.jdbc.core.namedparam.ParsedSql;
 
@@ -104,16 +107,14 @@ public abstract class SqlOperation extends RdbmsOperation {
 	protected final PreparedStatementCreator newPreparedStatementCreator(Object[] params) {
 		return this.preparedStatementFactory.newPreparedStatementCreator(params);
 	}
-
 	/**
 	 * Return a PreparedStatementCreator to perform an operation
 	 * with the given parameters.
 	 * @param sqlToUse the actual SQL statement to use (if different from
 	 * the factory's, for example because of named parameter expanding)
-	 * @param params the parameter array (may be {@code null})
+	 * @param params the parameter array (may be <code>null</code>)
 	 */
-	protected final PreparedStatementCreator newPreparedStatementCreator(String sqlToUse, Object[] params) {
-		return this.preparedStatementFactory.newPreparedStatementCreator(sqlToUse, params);
+	protected final PreparedStatementCreator newPreparedStatementCreator(String sqlToUse, List<SqlParameter> parmetersToUse, List<Object> values) {
+		return this.preparedStatementFactory.newPreparedStatementCreator(sqlToUse, parmetersToUse, values);
 	}
-
 }

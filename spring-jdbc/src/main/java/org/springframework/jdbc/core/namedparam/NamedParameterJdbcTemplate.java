@@ -33,7 +33,6 @@ import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SingleColumnRowMapper;
-import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.SqlRowSetResultSetExtractor;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
@@ -295,18 +294,17 @@ public class NamedParameterJdbcTemplate implements NamedParameterJdbcOperations 
 			String sql, SqlParameterSource paramSource, KeyHolder generatedKeyHolder, String[] keyColumnNames)
 			throws DataAccessException {
 
-		ParsedSql parsedSql = getParsedSql(sql);
-		String sqlToUse = NamedParameterUtils.substituteNamedParameters(parsedSql, paramSource);
-		Object[] params = NamedParameterUtils.buildValueArray(parsedSql, paramSource, null);
-		List<SqlParameter> declaredParameters = NamedParameterUtils.buildSqlParameterList(parsedSql, paramSource);
-		PreparedStatementCreatorFactory pscf = new PreparedStatementCreatorFactory(sqlToUse, declaredParameters);
+		NamedParameterUtils.SqlTypeValueArray tva = 
+				NamedParameterUtils.buildSqlTypeValueArray(getParsedSql(sql), paramSource);
+		
+		PreparedStatementCreatorFactory pscf = new PreparedStatementCreatorFactory(tva.sql, tva.params);
 		if (keyColumnNames != null) {
 			pscf.setGeneratedKeysColumnNames(keyColumnNames);
 		}
 		else {
 			pscf.setReturnGeneratedKeys(true);
 		}
-		return getJdbcOperations().update(pscf.newPreparedStatementCreator(params), generatedKeyHolder);
+		return getJdbcOperations().update(pscf.newPreparedStatementCreator(tva.values), generatedKeyHolder);
 	}
 
 	public int[] batchUpdate(String sql, Map<String, ?>[] batchValues) {
@@ -332,12 +330,11 @@ public class NamedParameterJdbcTemplate implements NamedParameterJdbcOperations 
 	 * @return the corresponding PreparedStatementCreator
 	 */
 	protected PreparedStatementCreator getPreparedStatementCreator(String sql, SqlParameterSource paramSource) {
-		ParsedSql parsedSql = getParsedSql(sql);
-		String sqlToUse = NamedParameterUtils.substituteNamedParameters(parsedSql, paramSource);
-		Object[] params = NamedParameterUtils.buildValueArray(parsedSql, paramSource, null);
-		List<SqlParameter> declaredParameters = NamedParameterUtils.buildSqlParameterList(parsedSql, paramSource);
-		PreparedStatementCreatorFactory pscf = new PreparedStatementCreatorFactory(sqlToUse, declaredParameters);
-		return pscf.newPreparedStatementCreator(params);
+		NamedParameterUtils.SqlTypeValueArray tva = 
+				NamedParameterUtils.buildSqlTypeValueArray(getParsedSql(sql), paramSource);
+
+		return new PreparedStatementCreatorFactory(tva.sql, tva.params)
+					  .newPreparedStatementCreator(tva.values);
 	}
 
 	/**

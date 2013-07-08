@@ -42,9 +42,9 @@ public class NamedParameterBatchUpdateUtils extends BatchUpdateUtils {
 				new BatchPreparedStatementSetter() {
 
 					public void setValues(PreparedStatement ps, int i) throws SQLException {
-						Object[] values = NamedParameterUtils.buildValueArray(parsedSql, batchArgs[i], null);
-						int[] columnTypes = NamedParameterUtils.buildSqlTypeArray(parsedSql, batchArgs[i]);
-						setStatementParameters(values, ps, columnTypes);
+						NamedParameterUtils.TypeValueArray tva = 
+								NamedParameterUtils.buildTypeValueArray(parsedSql, batchArgs[i]);
+						setStatementParameters(tva.values, ps, tva.params);
 					}
 
 					public int getBatchSize() {

@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1298,7 +1299,13 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 	 * @return the new PreparedStatementSetter to use
 	 */
 	protected PreparedStatementSetter newArgPreparedStatementSetter(Object[] args) {
-		return new ArgumentPreparedStatementSetter(args);
+		//return new ArgumentPreparedStatementSetter(args);
+		int[] types = null;
+		if(args!=null){
+			types = new int[args.length];
+			Arrays.fill(types,SqlTypeValue.TYPE_UNKNOWN);
+		}
+		return new PreparedStatementCreatorFactory(types).newPreparedStatementSetter(args);
 	}
 
 	/**
@@ -1310,7 +1317,8 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 	 * @return the new PreparedStatementSetter to use
 	 */
 	protected PreparedStatementSetter newArgTypePreparedStatementSetter(Object[] args, int[] argTypes) {
-		return new ArgumentTypePreparedStatementSetter(args, argTypes);
+		//return new ArgumentTypePreparedStatementSetter(args, argTypes);
+		return new PreparedStatementCreatorFactory(argTypes).newPreparedStatementSetter(args);
 	}
 
 	/**

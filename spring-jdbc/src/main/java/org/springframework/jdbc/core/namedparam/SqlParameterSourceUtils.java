@@ -35,10 +35,10 @@ public class SqlParameterSourceUtils {
 	 * @param valueMaps array of Maps containing the values to be used
 	 * @return an array of SqlParameterSource
 	 */
-	public static SqlParameterSource[] createBatch(Map[] valueMaps) {
+	public static SqlParameterSource[] createBatch(Map<String,Object>[] valueMaps) {
 		MapSqlParameterSource[] batch = new MapSqlParameterSource[valueMaps.length];
 		for (int i = 0; i < valueMaps.length; i++) {
-			Map valueMap = valueMaps[i];
+			Map<String,Object> valueMap = valueMaps[i];
 			batch[i] = new MapSqlParameterSource(valueMap);
 		}
 		return batch;
@@ -85,8 +85,8 @@ public class SqlParameterSourceUtils {
  * @param parameterSource the source of paramer names
  * @return the Map that can be used for case insensitive matching of parameter names
  */
-	public static Map extractCaseInsensitiveParameterNames(SqlParameterSource parameterSource) {
-		Map caseInsensitiveParameterNames = new HashMap();
+	public static Map<String,Object> extractCaseInsensitiveParameterNames(SqlParameterSource parameterSource) {
+		Map<String,Object> caseInsensitiveParameterNames = new HashMap<>();
 		if (parameterSource instanceof BeanPropertySqlParameterSource) {
 			String[] propertyNames = ((BeanPropertySqlParameterSource)parameterSource).getReadablePropertyNames();
 			for (int i = 0; i < propertyNames.length; i++) {

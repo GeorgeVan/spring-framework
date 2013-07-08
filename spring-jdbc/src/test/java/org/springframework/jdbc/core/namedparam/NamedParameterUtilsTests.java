@@ -149,7 +149,7 @@ public class NamedParameterUtilsTests {
 		paramMap.addValue("a", "a");
 		paramMap.addValue("b", "b");
 		paramMap.addValue("c", "c");
-		Object[] params = NamedParameterUtils.buildValueArray(psql1, paramMap, null);
+		Object[] params = NamedParameterUtils.buildTypeValueArray(psql1, paramMap).values.toArray();
 		assertEquals(4, params.length);
 		assertEquals("a", params[0]);
 		assertEquals("b", params[1]);

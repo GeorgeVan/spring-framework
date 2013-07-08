@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.springframework.jdbc.core.SqlParameterValue;
 import org.springframework.util.Assert;
 
 /**
@@ -84,9 +83,10 @@ public class MapSqlParameterSource extends AbstractSqlParameterSource {
 	public MapSqlParameterSource addValue(String paramName, Object value) {
 		Assert.notNull(paramName, "Parameter name must not be null");
 		this.values.put(paramName, value);
-		if (value instanceof SqlParameterValue) {
+		/*if (value instanceof SqlParameterValue) {
 			registerSqlType(paramName, ((SqlParameterValue) value).getSqlType());
-		}
+		}*/
+		//George: 这个真心没有意义，因为最终在Util里面会去找到这个SqlParameterValue
 		return this;
 	}
 
@@ -131,11 +131,7 @@ public class MapSqlParameterSource extends AbstractSqlParameterSource {
 	public MapSqlParameterSource addValues(Map<String, ?> values) {
 		if (values != null) {
 			for (Map.Entry<String, ?> entry : values.entrySet()) {
-				this.values.put(entry.getKey(), entry.getValue());
-				if (entry.getValue() instanceof SqlParameterValue) {
-					SqlParameterValue value = (SqlParameterValue) entry.getValue();
-					registerSqlType(entry.getKey(), value.getSqlType());
-				}
+				addValue(entry.getKey(), entry.getValue());
 			}
 		}
 		return this;

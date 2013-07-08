@@ -28,6 +28,7 @@ import java.util.Set;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.SqlParameterValue;
+import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.util.Assert;
 
 /**
@@ -298,42 +299,84 @@ public abstract class NamedParameterUtils {
 		actualSql.append(originalSql.substring(lastIndex, originalSql.length()));
 		return actualSql.toString();
 	}
+	
+	public static class TypeValueArray{
+		public List<Object> values = new ArrayList<>();
+		public List<SqlParameter> params = new ArrayList<>();
+	}
 
+	public static TypeValueArray buildTypeValueArray(
+			ParsedSql parsedSql, SqlParameterSource paramSource) {
+		return buildTypeValueArray(parsedSql,paramSource,null,null);
+	}	
+	
+	public static TypeValueArray buildTypeValueArray(
+			ParsedSql parsedSql,  
+			Map<String, ?> paramMap, List<SqlParameter> declaredParams) {
+		return buildTypeValueArray(parsedSql,null,paramMap,declaredParams);
+	}	
+	
+	public static SqlTypeValueArray buildSqlTypeValueArray(
+			ParsedSql parsedSql, SqlParameterSource paramSource) {
+		return new SqlTypeValueArray(
+					substituteNamedParameters(parsedSql,paramSource),
+					buildTypeValueArray(parsedSql,paramSource,null,null));
+	}	
+	
+	public static SqlTypeValueArray buildSqlTypeValueArray(
+			ParsedSql parsedSql,  
+			Map<String, ?> paramMap, List<SqlParameter> declaredParams) {
+		return new SqlTypeValueArray(
+				substituteNamedParameters(parsedSql,new MapSqlParameterSource(paramMap)),
+				buildTypeValueArray(parsedSql,null,paramMap,declaredParams));
+	}	
+
+	public static class SqlTypeValueArray extends TypeValueArray{
+		public String sql;
+		private SqlTypeValueArray(String sql, TypeValueArray tva){
+			this.sql=sql;
+			values= tva.values;
+			params=tva.params;
+		}
+	}
+	
 	/**
-	 * Convert a Map of named parameter values to a corresponding array.
-	 * @param parsedSql the parsed SQL statement
-	 * @param paramSource the source for named parameters
-	 * @param declaredParams the List of declared SqlParameter objects
-	 * (may be {@code null}). If specified, the parameter metadata will
-	 * be built into the value array in the form of SqlParameterValue objects.
-	 * @return the array of values
+	 * 使用paramSource，或者paramMap+declaredParams
 	 */
-	public static Object[] buildValueArray(
-			ParsedSql parsedSql, SqlParameterSource paramSource, List<SqlParameter> declaredParams) {
-
-		Object[] paramArray = new Object[parsedSql.getTotalParameterCount()];
-		if (parsedSql.getNamedParameterCount() > 0 && parsedSql.getUnnamedParameterCount() > 0) {
+	private static TypeValueArray buildTypeValueArray(
+			ParsedSql parsedSql, SqlParameterSource paramSource, 
+			Map<String, ?> paramMap, List<SqlParameter> declaredParams) {
+		if (parsedSql.getUnnamedParameterCount() > 0) {
 			throw new InvalidDataAccessApiUsageException(
 					"You can't mix named and traditional ? placeholders. You have " +
 					parsedSql.getNamedParameterCount() + " named parameter(s) and " +
 					parsedSql.getUnnamedParameterCount() + " traditonal placeholder(s) in [" +
 					parsedSql.getOriginalSql() + "]");
 		}
-		List<String> paramNames = parsedSql.getParameterNames();
-		for (int i = 0; i < paramNames.size(); i++) {
-			String paramName = paramNames.get(i);
+		
+		TypeValueArray r = new TypeValueArray();
+		for (String paramName: parsedSql.getParameterNames()) {
 			try {
-				Object value = paramSource.getValue(paramName);
-				SqlParameter param = findParameter(declaredParams, paramName, i);
-				paramArray[i] = (param != null ? new SqlParameterValue(param, value) : value);
+				if(paramSource!=null){
+					r.values.add(paramSource.getValue(paramName));
+					//SqlParameterSource里面没有Scale信息
+					r.params.add(new SqlParameter(paramSource.getSqlType(paramName), paramSource.getTypeName(paramName)));
+				}else{
+					r.values.add(paramMap.get(paramName));
+					SqlParameter param = findParameter(declaredParams, paramName, r.values.size()-1);
+					//没有declare也没关系。
+					r.params.add(param != null ? param :  new SqlParameter(SqlTypeValue.TYPE_UNKNOWN));
+				}
 			}
 			catch (IllegalArgumentException ex) {
 				throw new InvalidDataAccessApiUsageException(
 						"No value supplied for the SQL parameter '" + paramName + "': " + ex.getMessage());
 			}
 		}
-		return paramArray;
-	}
+		return r;
+	}	
+
+
 
 	/**
 	 * Find a matching parameter in the given list of declared parameters.
@@ -460,7 +503,7 @@ public abstract class NamedParameterUtils {
 	 */
 	public static Object[] buildValueArray(String sql, Map<String, ?> paramMap) {
 		ParsedSql parsedSql = parseSqlStatement(sql);
-		return buildValueArray(parsedSql, new MapSqlParameterSource(paramMap), null);
+		return buildTypeValueArray(parsedSql, new MapSqlParameterSource(paramMap)).values.toArray();
 	}
 
 	private static class ParameterHolder {
